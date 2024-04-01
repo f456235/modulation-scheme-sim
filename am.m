@@ -1,0 +1,119 @@
+% AM modulation and demodulation process with Digital-to-Analog Conversion (DAC)
+
+%% Basic Parameters
+clear all;
+close all;
+fm = 100;          % Baseband signal frequency
+T = 2;             % Signal duration
+fs = 20000;        % Sampling frequency (Nyquist rate is fs/2)
+dt = 1/fs;         % Time sampling interval
+N = T/dt;          % Number of samples
+t = [0:N-1]*dt;    % Time vector
+
+%% Baseband Signal Generation (Digital Signal)
+digital_signal = [1 0 1 0 1 1 0 1 0 0 1 1];  % Example digital signal
+Am = 1;                                       % Baseband signal amplitude
+num_bits = numel(digital_signal);
+T = num_bits / fm;                            % Update signal duration based on the number of bits
+t = linspace(0, T, num_bits * fs);           % Update time vector based on the signal duration and sampling frequency
+
+mt = zeros(1, numel(t));                     % Initialize baseband signal
+for i = 1:num_bits
+    mt((i-1)*fs+1:i*fs) = Am * digital_signal(i);
+end
+%% Carrier Signal Generation
+fc = 1000;                                   % Carrier frequency
+t_carrier = linspace(0, T, numel(t));       % Time vector for carrier signal
+zaibo = cos(2*pi*fc*t_carrier);              % Carrier signal
+%% Interpolation of Baseband Signal
+mt_resampled = resample(mt, numel(t_carrier), numel(t));
+
+%% Amplitude Modulation (AM)
+Ma = 2;                                     % Modulation index
+A0 = Am/Ma;                                   % DC signal amplitude
+
+% Ensure both signals have the same length
+min_length = min(length(mt_resampled), length(zaibo));
+mt_resampled = mt_resampled(1:min_length);
+zaibo = zaibo(1:min_length);
+
+sam = (A0 + mt_resampled) .* zaibo;                    % Modulated signal
+
+
+
+%% Digital-to-Analog Conversion (DAC)
+analog_waveform = sam;
+
+%% Add Gaussian Noise
+SNR = 20;                                    % Signal-to-Noise Ratio (SNR) in dB
+%analog_waveform = awgn(analog_waveform, SNR, 'measured');
+
+%% Demodulation: Coherent Detection
+st = analog_waveform .* zaibo;
+
+%% Frequency Domain Processing (Low-pass Filtering)
+[f, sf] = T2F(t, st);                        % Frequency domain representation
+bw = 2*fm;                                 % Bandwidth (twice the baseband frequency)
+[t, st_lpf] = lpf(f, sf, bw);                    % Low-pass filtering
+
+%% Plotting
+figure;
+
+% Plot Baseband Signal
+subplot(3, 2, 1);
+plot(t, mt, 'Linewidth', 2);
+title('Baseband Signal');
+xlabel('Time (s)');
+ylabel('Amplitude');
+
+% Plot Carrier Signal
+subplot(3, 2, 2);
+plot(t(1:10000), zaibo(1:10000), 'r', 'Linewidth', 2);
+title('Carrier Signal');
+xlabel('Time (s)');
+ylabel('Amplitude');
+
+% Plot Modulated Signal
+subplot(3, 2, 3);
+plot(t, analog_waveform, 'Linewidth', 2);
+title('Modulated Signal (without Noise)');
+xlabel('Time (s)');
+ylabel('Amplitude');
+
+% Plot Demodulated Signal (Before LPF)
+subplot(3, 2, 4);
+plot(t, st, 'Linewidth', 2);
+title('Demodulated Signal (Before LPF)');
+xlabel('Time (s)');
+ylabel('Amplitude');
+
+% Plot Demodulated Signal (After LPF)
+subplot(3, 2, 5);
+plot(t, st_lpf, 'Linewidth', 2);
+title('Demodulated Signal (After LPF)');
+xlabel('Time (s)');
+ylabel('Amplitude');
+
+% Plot Original Digital Signal
+subplot(3, 2, 6);
+stem(0:numel(digital_signal)-1, digital_signal, 'r', 'Linewidth', 2);
+title('Original Digital Signal');
+xlabel('Sample Index');
+ylabel('Amplitude');
+
+% Step 1: Data Rate Calculation
+data_rate = numel(digital_signal) / T; % Number of bits per unit time
+
+% Step 2: Demodulation and Decoding to Obtain Received Digital Signal
+% (You can add your demodulation and decoding code here)
+
+% Assuming received_signal is the received digital signal
+received_signal = digital_signal; % Placeholder, replace with actual demodulated signal
+
+% Step 3: Calculate Error Rate
+num_bit_errors = sum(received_signal ~= digital_signal); % Count number of bit errors
+error_rate = (num_bit_errors / numel(digital_signal)) * 100; % Error rate in percentage
+
+% Display Results
+fprintf('Data Rate: %.2f bits/s\n', data_rate);
+fprintf('Error Rate: %.2f%%\n', error_rate);
